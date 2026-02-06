@@ -1,0 +1,14 @@
+node_modules
+.expo
+.next
+dist
+build
+*.log
+.DS_Store
+.env
+dev.db
+backend/node_modules
+admin/node_modules
+admin/.next
+qr-generator/node_modules
+qr-generator/output
