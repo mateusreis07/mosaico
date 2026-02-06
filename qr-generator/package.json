@@ -1,0 +1,13 @@
+{
+    "name": "mosaico-qr-generator",
+    "version": "1.0.0",
+    "description": "Generate QR Codes for Mosaico seats",
+    "main": "generate.js",
+    "scripts": {
+        "start": "node generate.js"
+    },
+    "dependencies": {
+        "qrcode": "^1.5.3",
+        "pdfkit": "^0.14.0"
+    }
+}
