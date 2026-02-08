@@ -38,6 +38,27 @@ export class SeatController {
       res.status(500).json({ error: 'Internal Server Error' });
     }
   }
+
+  public async warmupEvent(req: Request, res: Response): Promise<void> {
+    try {
+      const { eventId } = req.params;
+
+      if (!eventId) {
+        res.status(400).json({ error: 'eventId is required' });
+        return;
+      }
+
+      console.log(`Starting warmup for event ${eventId}...`);
+      const stats = await seatService.warmupEvent(eventId);
+
+      console.log(`Warmup complete:`, stats);
+      res.json(stats);
+
+    } catch (error) {
+      console.error('Error during warmup:', error);
+      res.status(500).json({ error: String(error) });
+    }
+  }
 }
 
 export const seatController = new SeatController();

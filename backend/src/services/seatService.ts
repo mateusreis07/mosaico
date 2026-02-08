@@ -75,6 +75,47 @@ export class SeatService {
     return { ...data, source: 'db' };
   }
 
+  public async warmupEvent(eventId: string): Promise<{ total: number; cached: number; timeMs: number }> {
+    const start = performance.now();
+
+    // Import dynamically to avoid circular dependency issues if any
+    const { getAllEventSeats } = require('./eventService');
+
+    const data = await getAllEventSeats(eventId);
+
+    if (!data || !data.seats) {
+      throw new Error(`Event ${eventId} not found or has no seats`);
+    }
+
+    const { event, seats } = data;
+    let cachedCount = 0;
+    const version = this.CONFIG_VERSION;
+    const expiresAt = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(); // 3 hours
+
+    for (const seat of seats) {
+      const seatData: SeatData = {
+        event: event.name,
+        seat: seat.seatId,
+        color: seat.color,
+        fallbackColor: event.fallbackColor,
+        expiresAt,
+        version
+      };
+
+      // Populate cache for the active event prefix
+      seatCache.set(seat.seatId, this.CURRENT_EVENT_ID_PREFIX, seatData, version);
+      cachedCount++;
+    }
+
+    const end = performance.now();
+
+    return {
+      total: seats.length,
+      cached: cachedCount,
+      timeMs: Math.round(end - start)
+    };
+  }
+
   public invalidateSeat(seatId: string) {
     seatCache.invalidate(seatId, this.CURRENT_EVENT_ID_PREFIX);
     console.log(`[CACHE INVALIDATION] Seat: ${seatId}`);

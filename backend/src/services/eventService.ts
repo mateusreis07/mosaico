@@ -138,3 +138,22 @@ export const getEventMap = async () => {
     // Convert to map { "A-1-1": "#F00" }
     return seats.reduce((acc, curr) => ({ ...acc, [curr.seatId]: curr.color }), {});
 };
+
+export const getAllEventSeats = async (eventId: string) => {
+    const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        select: { name: true, fallbackColor: true }
+    });
+
+    if (!event) return null;
+
+    const seats = await prisma.seatEvent.findMany({
+        where: { eventId },
+        select: { seatId: true, color: true }
+    });
+
+    return {
+        event,
+        seats
+    };
+};
