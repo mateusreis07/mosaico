@@ -10,38 +10,9 @@ const PORT = 3333;
 
 // --- PUBLIC ROUTES ---
 
-app.get('/seat/:seat_id', async (req, res) => {
-    try {
-        const { seat_id } = req.params;
-        const result = await getSeatColor(seat_id);
-
-        if (!result) {
-            // Instead of 404, return a default "Waiting" state so the app doesn't crash
-            return res.json({
-                event: 'Aguardando Início...',
-                seat: seat_id,
-                color: '#000000', // Black screen
-                fallbackColor: '#000000',
-                expiresAt: new Date(Date.now() + 3600000).toISOString(),
-                brightness: 100,
-                version: 1
-            });
-        }
-
-        res.json({
-            event: result.event,
-            seat: seat_id,
-            color: result.color,
-            fallbackColor: result.fallbackColor,
-            expiresAt: result.expiresAt,
-            brightness: 100,
-            version: 1 // V1 of API
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
+// Use the new Cached Seat Controller
+import { seatRoutes } from './routes/seat.routes';
+app.use('/seat', seatRoutes);
 
 // --- ADMIN ROUTES ---
 
