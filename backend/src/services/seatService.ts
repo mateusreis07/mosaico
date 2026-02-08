@@ -17,32 +17,59 @@ export class SeatService {
   private readonly CONFIG_VERSION = 1;
 
   public async getSeatColor(seatId: string): Promise<any> {
+    const startTotal = performance.now();
+
     const eventId = this.CURRENT_EVENT_ID_PREFIX; // We use a generic active key since event ID changes
     const version = this.CONFIG_VERSION;
 
     // 1. Check Cache
+    const startCacheLookup = performance.now();
     const cachedData = seatCache.get(seatId, eventId, version);
+    const endCacheLookup = performance.now();
+
+    // Log sampling: 1% of requests to avoid flooding console during load test
+    const shouldLog = Math.random() < 0.01;
+
     if (cachedData) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[CACHE HIT] Seat: ${seatId}`);
+      const endTotal = performance.now();
+
+      if (shouldLog) {
+        console.log(JSON.stringify({
+          type: 'cache_hit',
+          seat_id: seatId,
+          total_ms: (endTotal - startTotal).toFixed(3),
+          cache_lookup_ms: (endCacheLookup - startCacheLookup).toFixed(3)
+        }));
       }
+
       return { ...cachedData, source: 'cache' };
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[CACHE MISS] Seat: ${seatId}`);
-    }
-
     // 2. Fetch from Source (Real DB Logic via eventService)
+    const startDb = performance.now();
     const data = await this.fetchFromSource(seatId);
+    const endDb = performance.now();
 
     // 3. Save to Cache
     // We only cache if we got valid data.
-    // If eventService returns null (no active event), we might return a default "waiting" state.
-    // Let's assume fetchFromSource handles defaults or we handle it here.
-
+    const startCacheWrite = performance.now();
     if (data) {
       seatCache.set(seatId, eventId, data, version);
+    }
+    const endCacheWrite = performance.now();
+
+    const endTotal = performance.now();
+
+    // Always log cache misses or errors if needed, but for load test sampling missed too
+    if (shouldLog) {
+      console.log(JSON.stringify({
+        type: 'cache_miss',
+        seat_id: seatId,
+        total_ms: (endTotal - startTotal).toFixed(3),
+        cache_lookup_ms: (endCacheLookup - startCacheLookup).toFixed(3),
+        db_query_ms: (endDb - startDb).toFixed(3),
+        cache_write_ms: (endCacheWrite - startCacheWrite).toFixed(3)
+      }));
     }
 
     return { ...data, source: 'db' };
