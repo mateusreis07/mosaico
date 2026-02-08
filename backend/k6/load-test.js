@@ -64,8 +64,8 @@ function getSeatId() {
   const isPopular = Math.random() < 0.8;
 
   if (isPopular) {
-    // Popular set: A-1-1 to A-1-100 (High probability of being cached)
-    const num = Math.floor(Math.random() * 100) + 1;
+    // Popular set: A-1-1 to A-1-400 (High probability of being cached)
+    const num = Math.floor(Math.random() * 400) + 1;
     return `A-1-${num}`;
   } else {
     // Random set: B-1-1 to B-1-10000 (Lower probability of being cached)

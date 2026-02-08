@@ -30,49 +30,40 @@ export class SeatService {
     // Log sampling: 1% of requests to avoid flooding console during load test
     const shouldLog = Math.random() < 0.01;
 
-    if (cachedData) {
+    if (cachedData === 'fallback_needed' || !cachedData) {
       const endTotal = performance.now();
 
       if (shouldLog) {
         console.log(JSON.stringify({
-          type: 'cache_hit',
+          type: 'fallback_return',
           seat_id: seatId,
           total_ms: (endTotal - startTotal).toFixed(3),
-          cache_lookup_ms: (endCacheLookup - startCacheLookup).toFixed(3)
+          reason: cachedData === 'fallback_needed' ? 'invalid_seat' : 'cache_miss_fallback'
         }));
       }
 
-      return { ...cachedData, source: 'cache' };
+      // Return a generic fallback - NO DB ACCESS
+      return {
+        event: 'Aguardando Início...',
+        seat: seatId,
+        color: '#000000',
+        fallbackColor: '#000000',
+        source: 'fallback'
+      };
     }
-
-    // 2. Fetch from Source (Real DB Logic via eventService)
-    const startDb = performance.now();
-    const data = await this.fetchFromSource(seatId);
-    const endDb = performance.now();
-
-    // 3. Save to Cache
-    // We only cache if we got valid data.
-    const startCacheWrite = performance.now();
-    if (data) {
-      seatCache.set(seatId, eventId, data, version);
-    }
-    const endCacheWrite = performance.now();
 
     const endTotal = performance.now();
 
-    // Always log cache misses or errors if needed, but for load test sampling missed too
     if (shouldLog) {
       console.log(JSON.stringify({
-        type: 'cache_miss',
+        type: 'cache_hit',
         seat_id: seatId,
         total_ms: (endTotal - startTotal).toFixed(3),
-        cache_lookup_ms: (endCacheLookup - startCacheLookup).toFixed(3),
-        db_query_ms: (endDb - startDb).toFixed(3),
-        cache_write_ms: (endCacheWrite - startCacheWrite).toFixed(3)
+        cache_lookup_ms: (endCacheLookup - startCacheLookup).toFixed(3)
       }));
     }
 
-    return { ...data, source: 'db' };
+    return { ...cachedData, source: 'cache' };
   }
 
   public async warmupEvent(eventId: string): Promise<{ total: number; cached: number; timeMs: number }> {
@@ -84,7 +75,11 @@ export class SeatService {
     const data = await getAllEventSeats(eventId);
 
     if (!data || !data.seats) {
-      throw new Error(`Event ${eventId} not found or has no seats`);
+      throw new Error(`Event ${eventId} not found`);
+    }
+
+    if (data.seats.length === 0) {
+      throw new Error(`Warmup aborted: Event ${eventId} has zero seats`);
     }
 
     const { event, seats } = data;

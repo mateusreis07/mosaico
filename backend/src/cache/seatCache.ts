@@ -7,10 +7,28 @@ interface CacheItem {
 
 export class SeatCache {
   private cache: Map<string, CacheItem>;
-  private readonly TTL_SECONDS = 60; // 60 seconds
+  private validSeats: Set<string>; // Registry of ALL valid seat IDs for the current event
+  private readonly TTL_SECONDS = 60 * 60 * 3; // Extended during warm-up (3 hours)
 
   constructor() {
     this.cache = new Map<string, CacheItem>();
+    this.validSeats = new Set<string>();
+  }
+
+  /**
+   * Register a list of valid seat IDs during warm-up.
+   * This is the "Truth Source" during the game.
+   */
+  public registerValidSeats(seatIds: string[]): void {
+    seatIds.forEach(id => this.validSeats.add(id));
+  }
+
+  /**
+   * Check if a seat ID serves as a valid key.
+   * If false, we should return fallback immediately.
+   */
+  public isValid(seatId: string): boolean {
+    return this.validSeats.has(seatId);
   }
 
   /**
@@ -24,6 +42,12 @@ export class SeatCache {
    * Get item from cache
    */
   public get(seatId: string, eventId: string, version: number): any | null {
+    // 1. Strict Validation: If seat is not in our registry, it's invalid.
+    // This assumes warm-up HAS run. If validSeats is empty, we might allow pass-through (or ideally block).
+    if (this.validSeats.size > 0 && !this.validSeats.has(seatId)) {
+      return 'fallback_needed'; // Special marker to signal fallback immediately
+    }
+
     const key = this.generateKey(seatId, eventId);
     const item = this.cache.get(key);
 
@@ -54,6 +78,9 @@ export class SeatCache {
   public set(seatId: string, eventId: string, data: any, version: number): void {
     const key = this.generateKey(seatId, eventId);
     const now = Date.now();
+
+    // Also mark as valid if setting individually
+    this.validSeats.add(seatId);
 
     const item: CacheItem = {
       value: data,
