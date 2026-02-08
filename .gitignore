@@ -1,14 +1,52 @@
+# Dependencies
 node_modules
-.expo
-.next
-dist
+.pnp
+.pnp.js
+
+# Testing
+coverage
+.nyc_output
+
+# Production
 build
-*.log
+dist
+backend/dist
+
+# Misc
 .DS_Store
 .env
-dev.db
-backend/node_modules
-admin/node_modules
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs
+*.njsproj
+*.sln
+*.sw?
+
+# Framework specific
+.expo
+.next
 admin/.next
-qr-generator/node_modules
 qr-generator/output
+
+# Database
+dev.db
+*.sqlite
+*.sqlite3
+
+# OS generated files
+Thumbs.db
+
+# k6
+summary.json
+*.html

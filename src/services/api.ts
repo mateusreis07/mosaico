@@ -17,7 +17,7 @@ export const getPixelConfig = async (seatId: string): Promise<PixelConfig> => {
         const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s Timeout
 
         // Replace with your computer's IP address
-        const API_URL = 'http://192.168.250.135:3333';
+        const API_URL = 'http://192.168.0.14:3333';
 
         try {
             const response = await fetch(`${API_URL}/seat/${seatId}`, {

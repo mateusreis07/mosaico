@@ -7,7 +7,7 @@ const SEATS_FILE = './seats.json';
 const OUTPUT_FILE = './output/stickers.pdf';
 
 // Config
-const DOMAIN = 'http://192.168.250.135:3333/seat'; // Pointing to our local backend for now, or app domain
+const DOMAIN = 'http://192.168.0.14:3333/seat'; // Pointing to our local backend for now, or app domain
 const PAGE_MARGIN = 20;
 const COLS = 4;
 const ROWS = 6;

@@ -1,54 +1,42 @@
-# Load Testing Guide (k6)
+# Load Testing Guide (RPS Based)
 
-This directory contains a load testing script designed to simulate high-concurrency stadium traffic (25k users).
+Este teste simula um cenário real de dia de jogo focado em **Requisições por Segundo (RPS)**, em vez de apenas usuários simultâneos.
 
-## Prerequisites
+## Cenário Configurado
 
-1. **Install k6**:
-   - **Windows (Winget)**: `winget install k6`
-   - **Windows (Chocolatey)**: `choco install k6`
-   - **MacOS**: `brew install k6`
-   - **Linux**: `sudo apt-get install k6`
+O teste utiliza o executor `ramping-arrival-rate` para garantir que a carga chegue ao servidor independentemente da velocidade de resposta (Open Model).
 
-2. **Ensure Backend is Running**:
-   - `npm run dev` in the `backend` folder.
-   - Server must be reachable at `http://localhost:3333`.
+| Fase | RPS Alvo | Duração | Descrição |
+|------|----------|---------|-----------|
+| **Warm-up** | 300 | 30s | Aquece o cache e conexões |
+| **Peak** | 2.500 | 2m | Simulação de intervalo de jogo |
+| **Stress** | 5.000 | 1m | Pico extremo (Gol/Celebração) |
+| **Cooldown** | 0 | 30s | Encerramento gradual |
 
-## Running the Test
+**Distribuição:**
+- 80% Cache Hits (Assentos A-1-1 a A-1-100)
+- 20% Cache Misses (Novos assentos)
 
-Run the script from the command line:
+## Como Rodar
 
 ```bash
 k6 run k6/load-test.js
 ```
 
-### Running a "Safe" Dry Run (Low Load)
-To verify everything works without crashing your machine, override the VU count:
+## Interpretando os Resultados
 
-```bash
-k6 run --vus 10 --duration 10s k6/load-test.js
-```
+### Métricas de Sucesso
+1. **http_req_duration > p(95) < 200ms**:
+   - Como 80% das chamadas são cacheadas (0-5ms), a média e o p95 devem ser baixos.
+   - Se subir > 500ms, o cache não está sendo efetivo ou o Node.js está bloqueado.
 
-## Interpreting Results
+2. **http_req_failed < 1%**:
+   - Erros de conexão ou timeouts indicam que o servidor não aguentou o RPS alvo.
 
-### Key Metrics to Watch
+3. **dropped_iterations**:
+   - Se este número for > 0, significa que sua **máquina local** (onde roda o k6) não conseguiu gerar carga suficiente. O gargalo é o teste, não a API.
 
-- **http_req_duration**: The total time for the request.
-  - `p(95)`: 95% of requests should be faster than this. Target: **< 500ms**.
-  - If `p(95)` spikes > 1000ms, the system is struggling.
+## Dicas de Performance Local
 
-- **http_req_failed**: Percentage of failed requests.
-  - Target: **0% (or < 1%)**.
-  - errors > 1% indicates server overload or timeouts.
-
-- **vus**: Virtual Users currently active. Ensure it reaches 25,000 (or your machine's limit).
-
-### Success Criteria
-1. **Low Latency**: Even at 25k users, Cached requests (80% of traffic) should return in < 10ms.
-2. **Stability**: No connection timeouts or 500 errors.
-3. **Throughput**: The RPS (Requests Per Second) should be stable, not fluctuating wildly.
-
-## Troubleshooting
-
-- **"socket: too many open files"**: Your OS limit for open connections is too low. Increase ulimit or reduce VUs.
-- **High CPU on Client**: Running 25k VUs requires significant CPU. If k6 uses 100% CPU, your results are invalid (client bottleneck). Consider running k6 on a separate machine or reducing VUs to 5,000.
+- Este teste gera até 5.000 requisições/segundo. Isso requer bastante CPU e portas de rede.
+- Se vir erros como `socket: too many open files`, aumente o limite do SO ou reduza o RPS no script.

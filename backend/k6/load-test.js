@@ -6,38 +6,56 @@ import { Rate } from 'k6/metrics';
 export const errorRate = new Rate('errors');
 
 export const options = {
-  // Scenario definitions
   scenarios: {
-    // 1. Warm up: 500 users for 30s to populate cache
-    warm_up: {
-      executor: 'constant-vus',
-      vus: 500,
-      duration: '30s',
-      gracefulStop: '5s',
-    },
-    // 2. Main Load: Ramp up to 25,000 users over 1 min, stay for 2 min
-    // Note: 25k VUs on a single machine is very high.
-    // You might need to adjust 'maxVUs' based on your machine's limits (CPU/RAM/File Descriptors).
-    peak_load: {
-      executor: 'ramping-vus',
-      startVUs: 500,
+    // Scenario: Realistic Game Day Traffic
+    // Executor: ramping-arrival-rate (Open Model)
+    // We define the target RPS (Requests Per Second) we want to achieve.
+    // k6 will spawn as many VUs as needed (up to maxVUs) to hit this rate.
+    game_day_traffic: {
+      executor: 'ramping-arrival-rate',
+
+      // Start at 0 RPS
+      startRate: 0,
+
+      // Time unit for "rate" is 1 second (stats per second)
+      timeUnit: '1s',
+
+      // VUs to initialize (save startup time)
+      preAllocatedVUs: 200,
+
+      // Cap VUs to prevent local machine crash if system halts
+      maxVUs: 2000,
+
       stages: [
-        { duration: '1m', target: 25000 }, // Ramp up
-        { duration: '2m', target: 25000 }, // Stay at peak
-        { duration: '1m', target: 0 },     // Ramp down (Cooldown)
+        // 1. Warm-up: Ramp to 300 RPS over 10s and hold for 30s
+        { target: 300, duration: '10s' },
+        { target: 300, duration: '30s' },
+
+        // 2. Peak: Ramp to 2,500 RPS over 30s and hold for 2m
+        { target: 2500, duration: '30s' },
+        { target: 2500, duration: '2m' }, // Main Game Time
+
+        // 3. Light Stress: Ramp to 5,000 RPS over 30s and hold for 1m
+        { target: 5000, duration: '30s' }, // Goal moment?
+        { target: 5000, duration: '1m' },
+
+        // 4. Cooldown: Ramp down to 0
+        { target: 0, duration: '30s' },
       ],
-      gracefulRampDown: '30s',
-      startTime: '35s', // Start after warm_up
     },
   },
+
   thresholds: {
-    // Global thresholds
-    http_req_duration: ['p(95)<500'], // 95% of requests must complete below 500ms
-    'errors': ['rate<0.01'],          // Error rate must be less than 1%
+    // Real-world targets
+    // 95% of requests must be served within 200ms (Cache Hit speed)
+    http_req_duration: ['p(95)<200'],
+
+    // Fail if more than 1% of requests error out
+    'errors': ['rate<0.01'],
   },
 };
 
-const BASE_URL = 'http://localhost:3333'; // Ensure this matches your running API port
+const BASE_URL = 'http://localhost:3333'; // Ensure matches your API port
 
 // Helper to generate seat IDs
 // 80% chance to pick from "Popular" set (Cache Hits)
@@ -64,12 +82,12 @@ export default function () {
   // Validate response
   const result = check(res, {
     'status is 200': (r) => r.status === 200,
-    'latency is low': (r) => r.timings.duration < 500,
   });
 
   // Record metrics
   errorRate.add(!result);
 
-  // Think time: Simulate user delay between 0.5s and 1.5s
-  sleep(Math.random() * 1 + 0.5);
+  // Note: usage of sleep() in arrival-rate executor affects VU lifespan,
+  // not the throughput directly, but we keep it minimal or remove it
+  // to ensure VUs are recycled quickly for this high-throughput test.
 }
